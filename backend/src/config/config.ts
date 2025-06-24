@@ -1,54 +1,126 @@
+/**
+ * Configuration Module
+ * 
+ * @module Config
+ * @description
+ * This module centralizes all configuration settings for the CHIMERA backend.
+ * It handles environment variables, network configurations, and application constants.
+ * Environment variables are loaded from .env file using dotenv.
+ */
+
+// Load environment variables from .env file
 import dotenv from "dotenv";
 dotenv.config();
 
+// Server Configuration
 export const PORT = process.env.PORT || 8001;
+
+// Authentication Configuration
 export const JWT_SECRET = process.env.JWT_SECRET || "JWT_SECRET";
 
-export const TEST_MODE = true;
-export const MONGO_URL = process.env.MONGO_URI;
+// Environment Configuration
+export const TEST_MODE = true;  // Toggle between test and production environments
 
+// Database Configuration
+export const MONGO_URL = process.env.MONGO_URI;  // MongoDB connection string
+
+// Mempool API Configuration
+/**
+ * Mempool API endpoint URL
+ * Testnet: https://mempool.space/testnet4/api
+ * Mainnet: https://mempool.space/api
+ */
 export const MEMPOOL_API = TEST_MODE
-  ? "https://mempool.space/testnet4/api"
-  : "https://mempool.space/api";
+  ? "https://mempool.space/testnet4/api"  // Testnet API endpoint
+  : "https://mempool.space/api";           // Mainnet API endpoint
 
+// Smart Contract Configuration
+
+/**
+ * Primary smart contract public key
+ * Used for main contract interactions in the application
+ * Testnet: 393cd8d2c014d9e25b31a8a8407ff00986d9f84f40055545aacab3f05dd93240
+ * Mainnet: 393cd8d2c014d9e25b31a8a8407ff00986d9f84f40055545aacab3f05dd93240
+ */
 export const SMART_CONTRACT_PUBKEY = TEST_MODE
-  ? "393cd8d2c014d9e25b31a8a8407ff00986d9f84f40055545aacab3f05dd93240"
-  : "393cd8d2c014d9e25b31a8a8407ff00986d9f84f40055545aacab3f05dd93240";
+  ? "a012355f0d46606e1bb7f49107577765af410703fb15443bc62c7172f034c059"  // Testnet contract
+  : "a012355f0d46606e1bb7f49107577765af410703fb15443bc62c7172f034c059";  // Mainnet contract
 
+/**
+ * Account public key for main contract interactions
+ * Testnet: 55825877dc8d4b0294aef822e685289ddebcdbcdb48909c3fbbe5fa8e95d68b
+ * Mainnet: (to be configured)
+ */
 export const ACCOUNT_PUBKEY = TEST_MODE
-  ? "55825877dc8d4b0294aef822e685289ddebcdbcdb48909c3fb7be5fa8e95d68b"
-  : "";
+  ? "ca74c4777b9a4753bd401751d9c33539b9352a152ab92d63a97fd0ab699a0835"  // Testnet account (32-byte public key)
+  : "";  // Mainnet account (to be configured)
 
+/**
+ * Swap-specific smart contract public key
+ * Used for token swap operations
+ * Testnet: 91d402e0373f71cd86ca53bc623912bb47a350015bcf5aafa7be9e3fc202e895
+ * Mainnet: 91d402e0373f71cd86ca53bc623912bb47a350015bcf5aafa7be9e3fc202e895
+ */
 export const SMART_CONTRACT_PUBKEY_SWAP = TEST_MODE
-  ? "91d402e0373f71cd86ca53bc623912bb47a350015bcf5aafa7be9e3fc202e895"
-  : "91d402e0373f71cd86ca53bc623912bb47a350015bcf5aafa7be9e3fc202e895";
+  ? "91d402e0373f71cd86ca53bc623912bb47a350015bcf5aafa7be9e3fc202e895"  // Testnet swap contract
+  : "91d402e0373f71cd86ca53bc623912bb47a350015bcf5aafa7be9e3fc202e895";  // Mainnet swap contract
 
+/**
+ * Account public key for swap operations
+ * Testnet: 7a1fcbe1f3b73b8bb75b6b1b4e7dc11ae55196dc8edd8c7fb69ba05290bebe2f
+ * Mainnet: (to be configured)
+ */
 export const ACCOUNT_PUBKEY_SWAP = TEST_MODE
-  ? "7a1fcbe1f3b73b8bb75b6b1b4e7dc11ae55196dc8edd8c7fb69ba05290bebe2f"
-  : "";
+  ? "7a1fcbe1f3b73b8bb75b6b1b4e7dc11ae55196dc8edd8c7fb69ba05290bebe2f"  // Testnet swap account
+  : "";  // Mainnet swap account (to be configured)
 
+// RPC Configuration
+
+/**
+ * URL for the Arch RPC endpoint
+ * Local development: http://localhost:9002
+ * Production: (to be configured)
+ * Local development uses localhost, while production uses Arch network
+ */
 // export const RPC_URL = TEST_MODE ? "http://rpc-01.test.arch.network" : "";
-export const RPC_URL = TEST_MODE ? "http://localhost:9002" : "";
+export const RPC_URL = TEST_MODE 
+  ? "http://127.0.0.1:9002"  // Local Arch RPC endpoint
+  : "";  // Production RPC (to be configured)
 
+// Gomaestro API Configuration
 export const GOMAESTRO_URL = TEST_MODE
-  ? "https://xbt-testnet.gomaestro-api.org/v0"
-  : "https://xbt-mainnet.gomaestro-api.org/v0";
+  ? "https://xbt-testnet.gomaestro-api.org/v0"  // Testnet Gomaestro
+  : "https://xbt-mainnet.gomaestro-api.org/v0";  // Mainnet Gomaestro
 
+// Gomaestro private key for API authentication
 export const GOMAESTRO_PRIVATE_KEY = process.env.GOMAESTRO_PRIVATE_KEY;
-export const SIGNATURE_SIZE = 126;
-export const MAX_RETRIES = 3;
-export const SYSTEM_SMART_CONTRACT =
-  "0000000000000000000000000000000000000000000000000000000000000001";
 
+// Transaction Configuration
+export const SIGNATURE_SIZE = 126;  // Expected size of ECDSA signatures in bytes
+export const MAX_RETRIES = 3;  // Maximum number of retries for failed operations
+
+// System Constants
+export const SYSTEM_SMART_CONTRACT =
+  "0000000000000000000000000000000000000000000000000000000000000001";  // Default system contract address
+
+// Rune Token Configuration
+
+/** Default amount of Rune tokens to use in swap operations */
 export const runeSwapAmount = 100000;
+
+/** Base Rune ID used in the application */
 export const runeId = "68341:599";
-export const SOURCE_RUNE_TOKEN_ID = "72801:1000";
-export const FIRST_RUNE_TOKEN_ID = "72795:1082";
-export const SECOND_RUNE_TOKEN_ID = "72801:1001";
-export const THIRD_RUNE_TOKEN_ID = "72801:1007";
-export const FORTH_RUNE_TOKEN_ID = "72801:1004";
-export const FIFTH_RUNE_TOKEN_ID = "72801:1003";
-export const SIXTH_RUNE_TOKEN_ID = "72801:1002";
+
+// Rune Token IDs for different assets in the system
+// Format: "BLOCK:TX_INDEX"
+
+export const SOURCE_RUNE_TOKEN_ID = "72801:1000";  // Source token for swaps
+export const FIRST_RUNE_TOKEN_ID = "72795:1082";   // First token in the system
+export const SECOND_RUNE_TOKEN_ID = "72801:1001";  // Second token in the system
+export const THIRD_RUNE_TOKEN_ID = "72801:1007";   // Third token in the system
+export const FORTH_RUNE_TOKEN_ID = "72801:1004";   // Fourth token in the system
+export const FIFTH_RUNE_TOKEN_ID = "72801:1003";   // Fifth token in the system
+export const SIXTH_RUNE_TOKEN_ID = "72801:1002";   // Sixth token in the system
 export const SEVENTH_RUNE_TOKEN_ID = "72801:1008";
 export const EIGHTH_RUNE_TOKEN_ID = "72801:1005";
 export const NINTH_RUNE_TOKEN_ID = "72801:1006";

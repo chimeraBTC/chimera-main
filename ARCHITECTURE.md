@@ -79,11 +79,11 @@ This document provides a detailed overview of the entire CHIMERA codebase, inclu
         │   ├── config.ts
         │   ├── db.ts
         │   └── schema.ts
-        ├── controller/
-        │   ├── generatePSBT.Controller.ts
-        │   ├── runeLP.Controller.ts
-        │   ├── swap.Controller.ts
-        │   └── userData.Controller.ts
+        ├── controllers/
+        │   ├── etfSwapController.ts
+        │   ├── generatePsbtController.ts
+        │   ├── runeLpController.ts
+        │   └── userController.ts
         ├── model/
         │   ├── NftData/
         │   │   └── index.ts
@@ -93,9 +93,9 @@ This document provides a detailed overview of the entire CHIMERA codebase, inclu
         │       └── index.ts
         ├── routes/
         │   ├── index.ts
-        │   ├── gnerateSwapPSBTRoute/
+        │   ├── generatePSBT/
         │   │   └── index.ts
-        │   ├── swapRoute/
+        │   ├── ETFswap/
         │   │   └── index.ts
         │   └── user/
         │       └── index.ts

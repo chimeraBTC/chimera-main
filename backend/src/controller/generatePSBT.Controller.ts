@@ -1,3 +1,25 @@
+/**
+ * PSBT Generation Controller
+ * 
+ * @module GeneratePSBTController
+ * @description
+ * This module handles the generation of Partially Signed Bitcoin Transactions (PSBTs) for various operations
+ * in the CHIMERA ecosystem, including Rune token transfers, NFT operations, and smart contract interactions.
+ * It provides a secure and flexible way to construct, sign, and broadcast transactions on the Bitcoin network.
+ *
+ * Key Features:
+ * - Generation of PSBTs for different transaction types (Rune transfers, NFT operations, etc.)
+ * - Support for both mainnet and testnet operations
+ * - Integration with the Arch blockchain network
+ * - UTXO management and selection
+ * - Fee calculation and optimization
+ * - Transaction signing and broadcasting
+ *
+ * @see {@link https://github.com/bitcoin/bips/blob/master/bip-0174.mediawiki} for PSBT specification
+ * @see {@link https://docs.saturnbtc.io/} for Arch SDK documentation
+ */
+
+// Core Dependencies
 import { none, Rune, RuneId, Runestone } from "runelib";
 import * as btc from "@scure/btc-signer";
 import * as Bitcoin from "bitcoinjs-lib";
@@ -7,6 +29,8 @@ import wif from "wif";
 import bip322 from "bip322-js";
 import * as borsh from "borsh";
 import fs from "fs";
+
+// Blockchain SDKs
 import {
   ArchConnection,
   RpcConnection,
@@ -18,52 +42,94 @@ import {
   type ProcessedTransaction,
 } from "@saturnbtcio/arch-sdk";
 import { bytesToHex, hexToBytes } from "@noble/hashes/utils";
+// Configuration
 import {
-  SMART_CONTRACT_PUBKEY,
-  MAX_RETRIES,
-  RPC_URL,
-  ACCOUNT_PUBKEY,
-  runeSwapAmount,
-  runeId,
-  inscriptionIdList,
-  START_TIME,
-  WLList,
-  WL_CNT,
-  NORMAL_CNT,
-  WalletTypes,
+  SMART_CONTRACT_PUBKEY,  // Public key of the smart contract
+  MAX_RETRIES,              // Maximum number of retries for operations
+  RPC_URL,                  // URL for the RPC endpoint
+  ACCOUNT_PUBKEY,           // Public key of the account
+  runeSwapAmount,           // Default rune amount for swaps
+  runeId,                   // Rune ID for the token
+  inscriptionIdList,        // List of inscription IDs
+  START_TIME,               // Start time for time-based operations
+  WLList,                   // Whitelist configuration
+  WL_CNT,                   // Whitelist count
+  NORMAL_CNT,               // Normal count
+  WalletTypes,              // Supported wallet types
 } from "../config/config";
+
+// Services
 import {
-  fetchBTCUtxo,
-  fetchInscriptionUTXO,
-  fetchAvailableInscriptionUTXO,
-  fetchComfortableRuneUTXO,
-  fetchAllAvailableInscriptionUTXO,
+  fetchBTCUtxo,                    // Fetches BTC UTXOs
+  fetchInscriptionUTXO,            // Fetches inscription UTXOs
+  fetchAvailableInscriptionUTXO,    // Fetches available inscription UTXOs
+  fetchComfortableRuneUTXO,        // Fetches Rune UTXOs with comfortable balance
+  fetchAllAvailableInscriptionUTXO, // Fetches all available inscription UTXOs
 } from "../utils/utxo.service";
 import { getFeeRate, calculateTxFee } from "../utils/psbt.service";
-import { type IInscriptionUtxo, type IRuneUtxo } from "../types/type";
-import { checkTxValidation } from "../utils/utils.service";
-import {
-  SwapInscriptionRuneSchema,
-  SwapRuneInscriptionSchema,
-} from "../config/schema";
-import NFTDataModel from "../model/NftData";
-import UserDataModel from "../model/UserData";
 import { pushRawTx } from "../utils/psbt.service";
 
+// Types
+import { type IInscriptionUtxo, type IRuneUtxo } from "../types/type";
+
+// Utilities
+import { checkTxValidation } from "../utils/utils.service";
+
+// Schemas
+import {
+  SwapInscriptionRuneSchema,  // Schema for inscription to rune swaps
+  SwapRuneInscriptionSchema,  // Schema for rune to inscription swaps
+} from "../config/schema";
+
+// Models
+import NFTDataModel from "../model/NftData";
+import UserDataModel from "../model/UserData";
+
+// Initialize cryptographic libraries
 const ECPair = ECPairFactory(ecc);
 Bitcoin.initEccLib(ecc);
 
+/**
+ * Testnet4 Network Configuration
+ * 
+ * @constant {Object} TESTNET4_NETWORK
+ * @description Configuration object for Bitcoin testnet4 network parameters
+ * @property {string} bech32 - Bech32 prefix for native segwit addresses ('tb' for testnet)
+ * @property {number} pubKeyHash - Version byte for P2PKH addresses (0x1c for testnet)
+ * @property {number} scriptHash - Version byte for P2SH addresses (0x16 for testnet)
+ * @property {number} wif - Version byte for WIF private keys (0x3f for testnet)
+ */
 export const TESTNET4_NETWORK: typeof btc.NETWORK = {
-  bech32: "tb", // Bech32 prefix for addresses on testnet4
+  bech32: "tb",
   pubKeyHash: 0x1c,
   scriptHash: 0x16,
   wif: 0x3f,
 };
 
-const rpc = ArchConnection(new RpcConnection(RPC_URL));
+// Initialize RPC connection to the Arch blockchain with testnet network
+const rpcConnection = new RpcConnection(RPC_URL);
+// @ts-ignore - The network property exists but isn't in the type definitions
+rpcConnection.network = TESTNET4_NETWORK;
+const rpc = ArchConnection(rpcConnection);
+
+// Note: The following are commented out as they're not currently in use
 // const client = new ArchRpcClient(RPC_URL);
 // const PRIVATE_KEY = process.env.ARCH_PRIVATE_KEY as string;
 
+/**
+ * Creates a BIP-322 compatible signature for a given message hash using the provided private key.
+ * This is used for signing messages that will be verified on the Bitcoin network.
+ * 
+ * @param {Uint8Array} messageHash - The hash of the message to be signed
+ * @param {string} privateKeyHex - The private key in hexadecimal format
+ * @returns {Promise<{signature: Buffer}>} An object containing the Schnorr signature
+ * @throws {Error} If address generation fails or signing encounters an error
+ * 
+ * @example
+ * const message = new TextEncoder().encode('Hello, world!');
+ * const hash = await crypto.subtle.digest('SHA-256', message);
+ * const { signature } = await createSignature(hash, 'private_key_hex');
+ */
 const createSignature = async (
   messageHash: Uint8Array,
   privateKeyHex: string
@@ -108,6 +174,24 @@ const createSignature = async (
   }
 };
 
+/**
+ * Transfers data to a smart contract on the Arch blockchain by creating and signing a transaction.
+ * This function handles the complete lifecycle of creating, signing, and submitting a transaction.
+ * 
+ * @param {ECPairInterface} keyPair - The ECPair instance containing the private key for signing
+ * @param {Instruction} instruction - The instruction to be executed by the smart contract
+ * @returns {Promise<ProcessedTransaction>} The result of the transaction submission
+ * @throws {Error} If transaction creation or submission fails
+ * 
+ * @example
+ * const keyPair = ECPair.fromWIF('private_key_wif');
+ * const instruction = new Instruction({
+ *   programId: 'program_id',
+ *   data: Buffer.from('data_to_send'),
+ *   accounts: []
+ * });
+ * const result = await transferDataToSmartContract(keyPair, instruction);
+ */
 const transferDataToSmartContract = async (
   keyPair: ECPairInterface,
   instruction: Instruction
@@ -143,12 +227,39 @@ const transferDataToSmartContract = async (
   }
 };
 
+/**
+ * Processes and broadcasts a signed PSBT (Partially Signed Bitcoin Transaction).
+ * This function handles the final steps of transaction processing including validation,
+ * fee calculation, and broadcasting to the network.
+ * 
+ * @param {WalletTypes} walletType - The type of wallet being used for the transaction
+ * @param {string} userAddress - The Bitcoin address of the user initiating the transaction
+ * @param {string} signedPSBT - The base64-encoded PSBT that has been signed
+ * @param {IInscriptionUtxo} inscriptionUtxo - The UTXO containing the inscription being transacted
+ * @param {boolean} [mint=false] - Optional flag indicating if this is a minting operation
+ * @returns {Promise<Object>} The result of the transaction broadcast
+ * @throws {Error} If PSBT processing or broadcast fails
+ * 
+ * @example
+ * const result = await pushPSBT(
+ *   WalletTypes.UNISAT,  // walletType
+ *   'tb1qxyz...',        // userAddress
+ *   'cHNidP8BA...',      // signedPSBT
+ *   {                    // inscriptionUtxo
+ *     txid: '...',
+ *     vout: 0,
+ *     value: 1000,
+ *     // ... other UTXO properties
+ *   },
+ *   true                // mint (optional)
+ * );
+ */
 export const pushPSBT = async (
   walletType: WalletTypes,
   userAddress: string,
   signedPSBT: string,
   inscriptionUtxo: IInscriptionUtxo,
-  mint?: boolean
+  mint: boolean = false
 ) => {
   try {
     const client = new RpcConnection(RPC_URL);
@@ -278,6 +389,18 @@ export const pushPSBT = async (
   }
 };
 
+/**
+ * Sends an inscription to a specified address by creating and broadcasting a transaction.
+ * This function handles the complete process of creating a PSBT, having it signed,
+ * and then broadcasting the final transaction to the network.
+ * 
+ * @param {string} userPubkey - The public key of the user in hexadecimal format
+ * @returns {Promise<Object>} The result of the transaction broadcast
+ * @throws {Error} If any step in the inscription sending process fails
+ * 
+ * @example
+ * const result = await sendInscription('03abcdef1234...');
+ */
 export const sendInscription = async (userPubkey: string) => {
   const smartcontractAccountPubkey = Buffer.from(ACCOUNT_PUBKEY, "hex");
 
@@ -369,6 +492,24 @@ export const sendInscription = async (userPubkey: string) => {
   return { hexPsbt };
 };
 
+/**
+ * Pushes a raw transaction to the Bitcoin network after combining and finalizing PSBTs.
+ * This function takes multiple signed PSBTs, combines them if necessary, and broadcasts
+ * the final transaction.
+ * 
+ * @param {string} psbt - The base64-encoded original PSBT
+ * @param {string} signedPsbt - The first signed PSBT in base64 format
+ * @param {string} signedPsbt1 - The second signed PSBT in base64 format (for multi-sig scenarios)
+ * @returns {Promise<Object>} The result of the transaction broadcast
+ * @throws {Error} If PSBT combination or broadcast fails
+ * 
+ * @example
+ * const result = await pushPsbtRawTx(
+ *   'base64_psbt',    // Original PSBT
+ *   'signed_psbt_1',  // First signature
+ *   'signed_psbt_2'   // Second signature (optional)
+ * );
+ */
 export const pushPsbtRawTx = async (
   psbt: string,
   signedPsbt: string,
@@ -390,6 +531,28 @@ export const pushPsbtRawTx = async (
   }
 };
 
+/**
+ * Prepares and generates a PSBT for a standard transaction operation.
+ * This function handles the creation of a PSBT for transferring assets between addresses,
+ * including fetching UTXOs, calculating fees, and constructing the transaction.
+ * 
+ * @param {WalletTypes} walletType - The type of wallet being used (e.g., UNISAT, XVERSE)
+ * @param {string} userPaymentAddress - The Bitcoin address for payment inputs/outputs
+ * @param {string} userPaymentPubkey - The public key associated with the payment address
+ * @param {string} userOrdinalAddress - The address holding ordinal/inscription UTXOs
+ * @param {string} userOrdinalPubkey - The public key associated with the ordinal address
+ * @returns {Promise<Object>} An object containing the generated PSBT and related data
+ * @throws {Error} If PSBT generation fails due to insufficient funds or other errors
+ * 
+ * @example
+ * const result = await preGeneratePSBT(
+ *   WalletTypes.UNISAT,        // walletType
+ *   'tb1qpayment...',          // userPaymentAddress
+ *   '03abcdef...',             // userPaymentPubkey
+ *   'tb1qordinal...',          // userOrdinalAddress
+ *   '03fedcba...'              // userOrdinalPubkey
+ * );
+ */
 export const preGeneratePSBT = async (
   walletType: WalletTypes,
   userPaymentAddress: string,
@@ -592,6 +755,29 @@ export const preGeneratePSBT = async (
   }
 };
 
+/**
+ * Prepares and generates a PSBT for reconverting assets, typically used for complex
+ * operations like redeeming from a smart contract or converting between asset types.
+ * 
+ * @param {WalletTypes} walletType - The type of wallet being used (e.g., UNISAT, XVERSE)
+ * @param {string} userPaymentAddress - The Bitcoin address for payment inputs/outputs
+ * @param {string} userPaymentPubkey - The public key associated with the payment address
+ * @param {string} userOrdinalAddress - The address holding ordinal/inscription UTXOs
+ * @param {string} userOrdinalPubkey - The public key associated with the ordinal address
+ * @param {string} inscriptionId - The ID of the inscription to be reconverted
+ * @returns {Promise<Object>} An object containing the generated PSBT and related data
+ * @throws {Error} If PSBT generation fails due to insufficient funds or other errors
+ * 
+ * @example
+ * const result = await preGenerateReconvertPSBT(
+ *   WalletTypes.UNISAT,        // walletType
+ *   'tb1qpayment...',          // userPaymentAddress
+ *   '03abcdef...',             // userPaymentPubkey
+ *   'tb1qordinal...',          // userOrdinalAddress
+ *   '03fedcba...',             // userOrdinalPubkey
+ *   'inscription_id_123'       // inscriptionId
+ * );
+ */
 export const preGenerateReconvertPSBT = async (
   walletType: WalletTypes,
   userPaymentAddress: string,
@@ -807,6 +993,31 @@ export const preGenerateReconvertPSBT = async (
   }
 };
 
+/**
+ * Processes and broadcasts a signed PSBT for a reconversion operation.
+ * This function handles the final steps of a reconversion transaction,
+ * including validation and broadcasting to the network.
+ * 
+ * @param {WalletTypes} walletType - The type of wallet being used (e.g., UNISAT, XVERSE)
+ * @param {string} signedPSBT - The base64-encoded PSBT that has been signed
+ * @param {IRuneUtxo[]} runeUtxos - Array of Rune UTXOs involved in the transaction
+ * @returns {Promise<Object>} The result of the transaction broadcast
+ * @throws {Error} If PSBT processing or broadcast fails
+ * 
+ * @example
+ * const result = await pushReconvertPSBT(
+ *   WalletTypes.UNISAT,  // walletType
+ *   'cHNidP8BA...',      // signedPSBT
+ *   [                    // runeUtxos
+ *     {
+ *       txid: '...',
+ *       vout: 0,
+ *       value: 1000,
+ *       // ... other UTXO properties
+ *     }
+ *   ]
+ * );
+ */
 export const pushReconvertPSBT = async (
   walletType: WalletTypes,
   signedPSBT: string,
@@ -914,6 +1125,22 @@ export const pushReconvertPSBT = async (
   }
 };
 
+/**
+ * Prepares and generates a PSBT for sending Rune tokens to another address.
+ * This function handles the creation of a PSBT for Rune token transfers,
+ * including fetching UTXOs, calculating fees, and constructing the transaction.
+ * 
+ * @param {string} userAddress - The Bitcoin address of the sender
+ * @param {string} userPubkey - The public key of the sender in hexadecimal format
+ * @returns {Promise<Object>} An object containing the generated PSBT and related data
+ * @throws {Error} If PSBT generation fails due to insufficient funds or other errors
+ * 
+ * @example
+ * const result = await preGenerateSendRune(
+ *   'tb1qaddress...',  // userAddress
+ *   '03abcdef...'      // userPubkey
+ * );
+ */
 export const preGenerateSendRune = async (
   userAddress: string,
   userPubkey: string
@@ -1023,6 +1250,22 @@ export const preGenerateSendRune = async (
   }
 };
 
+/**
+ * Prepares and generates a PSBT for claiming Rune tokens from a smart contract.
+ * This function handles the creation of a PSBT for claiming tokens that have been
+ * locked in a smart contract, including validation and fee calculation.
+ * 
+ * @param {string} userAddress - The Bitcoin address that will receive the claimed tokens
+ * @param {string} userPubkey - The public key of the recipient in hexadecimal format
+ * @returns {Promise<Object>} An object containing the generated PSBT and related data
+ * @throws {Error} If PSBT generation fails due to validation errors or other issues
+ * 
+ * @example
+ * const result = await preGenerateClaimPSBT(
+ *   'tb1qaddress...',  // userAddress
+ *   '03abcdef...'      // userPubkey
+ * );
+ */
 export const preGenerateClaimPSBT = async (
   userAddress: string,
   userPubkey: string

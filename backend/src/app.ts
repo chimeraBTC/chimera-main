@@ -1,12 +1,34 @@
+/**
+ * CHIMERA Backend Server
+ * 
+ * This is the main entry point for the CHIMERA backend API server.
+ * It sets up the Express application, connects to MongoDB, configures middleware,
+ * and defines the API routes for handling Rune/Inscription swaps and liquidity operations.
+ * 
+ * The server provides endpoints for:
+ * - PSBT (Partially Signed Bitcoin Transaction) generation and processing
+ * - Rune/Inscription atomic swaps
+ * - Liquidity pool operations
+ * - User management
+ * - ETF (Exchange-Traded Fund) operations
+ */
+
+// Import required modules and dependencies
 import bodyParser from "body-parser";
 import cors from "cors";
 import dotenv from "dotenv";
 import express from "express";
 import path from "path";
 import http from "http";
+
+// Import configuration and database connection
 import { PORT } from "./config/config";
 import { connectMongoDB } from "./config/db";
-import { GenerateSwapPSBTRoute, UserRoute, ETFRoute } from "./routes";
+
+// Import route handlers
+import { GeneratePSBTRoute, UserRoute, ETFRoute } from "./routes";
+
+// Import controller functions for PSBT operations
 import {
   preGeneratePSBT,
   pushPSBT,
@@ -17,6 +39,8 @@ import {
   preGenerateClaimPSBT,
   pushPsbtRawTx,
 } from "./controller/generatePSBT.Controller";
+
+// Import controller functions for Rune liquidity pool operations
 import {
   checkUserPosition,
   preDepositAssets,
@@ -26,36 +50,64 @@ import {
   swapMessage,
   submitSwap,
 } from "./controller/runeLP.Controller";
+
+// Import controller functions for swap operations
 import {
   preGenerateRuneSwap,
   preGenerateSendRuneToSWAP,
   pushSwapPsbt,
   splitUtxos,
-} from "./controller/swap.Controller";
+} from "./controller/ETFswap.Controller";
+
+// Import utility functions
 import { isUTXOSpent, fetchTxStatus } from "./utils/utxo.service";
 import { getFeeRate } from "./utils/psbt.service";
+
+/**
+ * Initialize Application
+ */
 
 // Load environment variables from .env file
 dotenv.config();
 
 // Connect to the MongoDB database
-connectMongoDB();
+connectMongoDB()
+  .then(() => console.log("MongoDB connected successfully"))
+  .catch(err => console.error("MongoDB connection error:", err));
 
 // Create an instance of the Express application
 const app = express();
 
-// Set up Cross-Origin Resource Sharing (CORS) options
-app.use(cors());
+/**
+ * Middleware Configuration
+ */
 
-// Parse incoming JSON requests using body-parser
+// Set up Cross-Origin Resource Sharing (CORS) to allow requests from frontend
+app.use(cors({
+  origin: process.env.FRONTEND_URL || "*",
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+  credentials: true
+}));
+
+// Parse JSON and URL-encoded request bodies with increased size limit for PSBT data
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ limit: "50mb", extended: true }));
 app.use(bodyParser.json({ limit: "50mb" }));
 app.use(bodyParser.urlencoded({ limit: "50mb", extended: true }));
 
+// Create HTTP server instance
 const server = http.createServer(app);
 
-app.use("/api/swap", GenerateSwapPSBTRoute);
+/**
+ * API Routes
+ * 
+ * All API endpoints are prefixed with /api
+ * - /api/swap: Handles PSBT generation and swap operations
+ * - /api/user: User-related endpoints
+ * - /api/etf: ETF (Exchange-Traded Fund) operations
+ */
+app.use("/api/swap", GeneratePSBTRoute);
 app.use("/api/user", UserRoute);
 app.use("/api/etf", ETFRoute);
 
@@ -339,10 +391,58 @@ test();
 
 // test();
 
-app.get("/", async (req: any, res: any) => {
-  res.send("Working Version Backend Server is Running now!");
+/**
+ * Health Check Endpoint
+ * 
+ * Simple endpoint to verify that the server is running
+ */
+app.get("/", async (req: express.Request, res: express.Response) => {
+  res.status(200).json({
+    status: "success",
+    message: "CHIMERA Backend Server is Running",
+    version: "1.0.0",
+    timestamp: new Date().toISOString()
+  });
 });
 
-server.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
+/**
+ * Start the server
+ */
+const startServer = async () => {
+  try {
+    server.listen(PORT, () => {
+      console.log(`🚀 Server is running on port ${PORT}`);
+      console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+    });
+
+    // Handle unhandled promise rejections
+    process.on('unhandledRejection', (err: Error) => {
+      console.error('Unhandled Rejection! Shutting down...');
+      console.error(err.name, err.message);
+      // Close server & exit process
+      server.close(() => process.exit(1));
+    });
+  } catch (error) {
+    console.error('Failed to start server:', error);
+    process.exit(1);
+  }
+};
+
+// Start the server
+startServer();
+
+// Handle uncaught exceptions
+process.on('uncaughtException', (err: Error) => {
+  console.error('Uncaught Exception! Shutting down...');
+  console.error(err.name, err.message);
+  // Close server & exit process
+  server.close(() => process.exit(1));
+});
+
+// Handle SIGTERM signal (e.g., from Docker)
+process.on('SIGTERM', () => {
+  console.log('SIGTERM received. Shutting down gracefully');
+  server.close(() => {
+    console.log('Process terminated');
+  });
 });
