@@ -18,7 +18,7 @@ import bodyParser from "body-parser";
 import cors from "cors";
 import dotenv from "dotenv";
 import express from "express";
-import path from "path";
+// import path from "path"; // Unused import
 import http from "http";
 
 // Import configuration and database connection
@@ -30,38 +30,12 @@ import { GeneratePSBTRoute, UserRoute, ETFRoute } from "./routes";
 
 // Import controller functions for PSBT operations
 import {
-  preGeneratePSBT,
-  pushPSBT,
   sendInscription,
   preGenerateReconvertPSBT,
-  pushReconvertPSBT,
-  preGenerateSendRune,
-  preGenerateClaimPSBT,
-  pushPsbtRawTx,
 } from "./controller/generatePSBT.Controller";
 
-// Import controller functions for Rune liquidity pool operations
-import {
-  checkUserPosition,
-  preDepositAssets,
-  generateMessage,
-  submitSignedMessage,
-  swapGeneratePsbt,
-  swapMessage,
-  submitSwap,
-} from "./controller/runeLP.Controller";
-
-// Import controller functions for swap operations
-import {
-  preGenerateRuneSwap,
-  preGenerateSendRuneToSWAP,
-  pushSwapPsbt,
-  splitUtxos,
-} from "./controller/ETFswap.Controller";
-
-// Import utility functions
-import { isUTXOSpent, fetchTxStatus } from "./utils/utxo.service";
-import { getFeeRate } from "./utils/psbt.service";
+// Import utility functions (commented out unused imports)
+// import { getFeeRate } from "./utils/psbt.service";
 
 /**
  * Initialize Application
@@ -112,10 +86,10 @@ app.use("/api/user", UserRoute);
 app.use("/api/etf", ETFRoute);
 
 const test = async () => {
-  const feeRate = await getFeeRate();
+  // const feeRate = await getFeeRate(); // Unused for now
   // preGenerateRuneSwap(
-  //   "tb1pgda5khhwqlc7jmdzn4plca3pa4m7jg38zcspj0mmuyk8hnj5pphskers72",
-  //   "026272fe4cf7746c9c3de3d48afc5f27fe4ba052fc8f72913a6020fa970f7f5823",
+  //   "tb1pdehlzgmjm4jpxcap8c0e4ncwjql9xgqvv3zegp8u953vsufpvjzqsw0ksy",
+  //   "035eca3cc573ec9385aad3c81e69112c8ae5e54afd0f678e983d241267b4510109",
   //   100
   // );
   // pushSwapPsbt(
@@ -153,27 +127,27 @@ const test = async () => {
   //   ]
   // );
   // preGenerateSendRuneToSWAP(
-  //   "tb1pgda5khhwqlc7jmdzn4plca3pa4m7jg38zcspj0mmuyk8hnj5pphskers72",
-  //   "026272fe4cf7746c9c3de3d48afc5f27fe4ba052fc8f72913a6020fa970f7f5823"
+  //   "tb1pdehlzgmjm4jpxcap8c0e4ncwjql9xgqvv3zegp8u953vsufpvjzqsw0ksy",
+  //   "035eca3cc573ec9385aad3c81e69112c8ae5e54afd0f678e983d241267b4510109"
   // );
   /**
    * Open Position
    */
 
   // await preDepositAssets(
-  //   "tb1pgda5khhwqlc7jmdzn4plca3pa4m7jg38zcspj0mmuyk8hnj5pphskers72",
-  //   "026272fe4cf7746c9c3de3d48afc5f27fe4ba052fc8f72913a6020fa970f7f5823",
-  //   "tb1pgda5khhwqlc7jmdzn4plca3pa4m7jg38zcspj0mmuyk8hnj5pphskers72",
-  //   "026272fe4cf7746c9c3de3d48afc5f27fe4ba052fc8f72913a6020fa970f7f5823",
+  //   "tb1pdehlzgmjm4jpxcap8c0e4ncwjql9xgqvv3zegp8u953vsufpvjzqsw0ksy",
+  //   "035eca3cc573ec9385aad3c81e69112c8ae5e54afd0f678e983d241267b4510109",
+  //   "tb1pdehlzgmjm4jpxcap8c0e4ncwjql9xgqvv3zegp8u953vsufpvjzqsw0ksy",
+  //   "035eca3cc573ec9385aad3c81e69112c8ae5e54afd0f678e983d241267b4510109",
   //   feeRate,
   //   100,
   //   true
   // );
   // generateMessage(
-  //   "tb1pgda5khhwqlc7jmdzn4plca3pa4m7jg38zcspj0mmuyk8hnj5pphskers72",
-  //   "026272fe4cf7746c9c3de3d48afc5f27fe4ba052fc8f72913a6020fa970f7f5823",
-  //   "tb1pgda5khhwqlc7jmdzn4plca3pa4m7jg38zcspj0mmuyk8hnj5pphskers72",
-  //   "026272fe4cf7746c9c3de3d48afc5f27fe4ba052fc8f72913a6020fa970f7f5823",
+  //   "tb1pdehlzgmjm4jpxcap8c0e4ncwjql9xgqvv3zegp8u953vsufpvjzqsw0ksy",
+  //   "035eca3cc573ec9385aad3c81e69112c8ae5e54afd0f678e983d241267b4510109",
+  //   "tb1pdehlzgmjm4jpxcap8c0e4ncwjql9xgqvv3zegp8u953vsufpvjzqsw0ksy",
+  //   "035eca3cc573ec9385aad3c81e69112c8ae5e54afd0f678e983d241267b4510109",
   //   feeRate,
   //   "100",
   //   "130190",
@@ -188,10 +162,10 @@ const test = async () => {
   //   false
   // );
   // submitSignedMessage(
-  //   "tb1pgda5khhwqlc7jmdzn4plca3pa4m7jg38zcspj0mmuyk8hnj5pphskers72",
-  //   "026272fe4cf7746c9c3de3d48afc5f27fe4ba052fc8f72913a6020fa970f7f5823",
-  //   "tb1pgda5khhwqlc7jmdzn4plca3pa4m7jg38zcspj0mmuyk8hnj5pphskers72",
-  //   "026272fe4cf7746c9c3de3d48afc5f27fe4ba052fc8f72913a6020fa970f7f5823",
+  //   "tb1pdehlzgmjm4jpxcap8c0e4ncwjql9xgqvv3zegp8u953vsufpvjzqsw0ksy",
+  //   "035eca3cc573ec9385aad3c81e69112c8ae5e54afd0f678e983d241267b4510109",
+  //   "tb1pdehlzgmjm4jpxcap8c0e4ncwjql9xgqvv3zegp8u953vsufpvjzqsw0ksy",
+  //   "035eca3cc573ec9385aad3c81e69112c8ae5e54afd0f678e983d241267b4510109",
   //   feeRate,
   //   "100",
   //   "339521",
@@ -213,19 +187,19 @@ const test = async () => {
    */
 
   // await preDepositAssets(
-  //   "tb1pgda5khhwqlc7jmdzn4plca3pa4m7jg38zcspj0mmuyk8hnj5pphskers72",
-  //   "026272fe4cf7746c9c3de3d48afc5f27fe4ba052fc8f72913a6020fa970f7f5823",
-  //   "tb1pgda5khhwqlc7jmdzn4plca3pa4m7jg38zcspj0mmuyk8hnj5pphskers72",
-  //   "026272fe4cf7746c9c3de3d48afc5f27fe4ba052fc8f72913a6020fa970f7f5823",
+  //   "tb1pdehlzgmjm4jpxcap8c0e4ncwjql9xgqvv3zegp8u953vsufpvjzqsw0ksy",
+  //   "035eca3cc573ec9385aad3c81e69112c8ae5e54afd0f678e983d241267b4510109",
+  //   "tb1pdehlzgmjm4jpxcap8c0e4ncwjql9xgqvv3zegp8u953vsufpvjzqsw0ksy",
+  //   "035eca3cc573ec9385aad3c81e69112c8ae5e54afd0f678e983d241267b4510109",
   //   feeRate,
   //   100,
   //   true
   // );
   // generateMessage(
-  //   "tb1pgda5khhwqlc7jmdzn4plca3pa4m7jg38zcspj0mmuyk8hnj5pphskers72",
-  //   "026272fe4cf7746c9c3de3d48afc5f27fe4ba052fc8f72913a6020fa970f7f5823",
-  //   "tb1pgda5khhwqlc7jmdzn4plca3pa4m7jg38zcspj0mmuyk8hnj5pphskers72",
-  //   "026272fe4cf7746c9c3de3d48afc5f27fe4ba052fc8f72913a6020fa970f7f5823",
+  //   "tb1pdehlzgmjm4jpxcap8c0e4ncwjql9xgqvv3zegp8u953vsufpvjzqsw0ksy",
+  //   "035eca3cc573ec9385aad3c81e69112c8ae5e54afd0f678e983d241267b4510109",
+  //   "tb1pdehlzgmjm4jpxcap8c0e4ncwjql9xgqvv3zegp8u953vsufpvjzqsw0ksy",
+  //   "035eca3cc573ec9385aad3c81e69112c8ae5e54afd0f678e983d241267b4510109",
   //   feeRate,
   //   "100",
   //   "337678",
@@ -241,9 +215,9 @@ const test = async () => {
   // );1202111111111111111111111111111111111111111111113.
   // submitSignedMessage(
   //   "tb1pg33da5khhwqlc7jmdzn4plca3pa4m7jg38zcspj0mmuyk8hnj5pphskers72",
-  //   "026272fe4cf7746c9c3de3d48afc5f27fe4ba052fc8f72913a6020fa970f7f5823",
-  //   "tb1pgda5khhwqlc7jmdzn4plca3pa4m7jg38zcspj0mmuyk8hnj5pphskers72",
-  //   "026272fe4cf7746c9c3de3d48afc5f27fe4ba052fc8f72913a6020fa970f7f5823",
+  //   "035eca3cc573ec9385aad3c81e69112c8ae5e54afd0f678e983d241267b4510109",
+  //   "tb1pdehlzgmjm4jpxcap8c0e4ncwjql9xgqvv3zegp8u953vsufpvjzqsw0ksy",
+  //   "035eca3cc573ec9385aad3c81e69112c8ae5e54afd0f678e983d241267b4510109",
   //   feeRate,
   //   "100",
   //   "331032",
@@ -264,19 +238,19 @@ const test = async () => {
    * Swap
    */
   // swapGeneratePsbt(
-  //   "tb1pgda5khhwqlc7jmdzn4plca3pa4m7jg38zcspj0mmuyk8hnj5pphskers72",
-  //   "026272fe4cf7746c9c3de3d48afc5f27fe4ba052fc8f72913a6020fa970f7f5823",
-  //   "tb1pgda5khhwqlc7jmdzn4plca3pa4m7jg38zcspj0mmuyk8hnj5pphskers72",
-  //   "026272fe4cf7746c9c3de3d48afc5f27fe4ba052fc8f72913a6020fa970f7f5823",
+  //   "tb1pdehlzgmjm4jpxcap8c0e4ncwjql9xgqvv3zegp8u953vsufpvjzqsw0ksy",
+  //   "035eca3cc573ec9385aad3c81e69112c8ae5e54afd0f678e983d241267b4510109",
+  //   "tb1pdehlzgmjm4jpxcap8c0e4ncwjql9xgqvv3zegp8u953vsufpvjzqsw0ksy",
+  //   "035eca3cc573ec9385aad3c81e69112c8ae5e54afd0f678e983d241267b4510109",
   //   feeRate,
   //   10000,
   //   false
   // );
   // swapMessage(
-  //   "tb1pgda5khhwqlc7jmdzn4plca3pa4m7jg38zcspj0mmuyk8hnj5pphskers72",
-  //   "026272fe4cf7746c9c3de3d48afc5f27fe4ba052fc8f72913a6020fa970f7f5823",
-  //   "tb1pgda5khhwqlc7jmdzn4plca3pa4m7jg38zcspj0mmuyk8hnj5pphskers72",
-  //   "026272fe4cf7746c9c3de3d48afc5f27fe4ba052fc8f72913a6020fa970f7f5823",
+  //   "tb1pdehlzgmjm4jpxcap8c0e4ncwjql9xgqvv3zegp8u953vsufpvjzqsw0ksy",
+  //   "035eca3cc573ec9385aad3c81e69112c8ae5e54afd0f678e983d241267b4510109",
+  //   "tb1pdehlzgmjm4jpxcap8c0e4ncwjql9xgqvv3zegp8u953vsufpvjzqsw0ksy",
+  //   "035eca3cc573ec9385aad3c81e69112c8ae5e54afd0f678e983d241267b4510109",
   //   feeRate,
   //   "10000",
   //   "8",
@@ -286,10 +260,10 @@ const test = async () => {
   //   false
   // );
   // submitSwap(
-  //   "tb1pgda5khhwqlc7jmdzn4plca3pa4m7jg38zcspj0mmuyk8hnj5pphskers72",
-  //   "026272fe4cf7746c9c3de3d48afc5f27fe4ba052fc8f72913a6020fa970f7f5823",
-  //   "tb1pgda5khhwqlc7jmdzn4plca3pa4m7jg38zcspj0mmuyk8hnj5pphskers72",
-  //   "026272fe4cf7746c9c3de3d48afc5f27fe4ba052fc8f72913a6020fa970f7f5823",
+  //   "tb1pdehlzgmjm4jpxcap8c0e4ncwjql9xgqvv3zegp8u953vsufpvjzqsw0ksy",
+  //   "035eca3cc573ec9385aad3c81e69112c8ae5e54afd0f678e983d241267b4510109",
+  //   "tb1pdehlzgmjm4jpxcap8c0e4ncwjql9xgqvv3zegp8u953vsufpvjzqsw0ksy",
+  //   "035eca3cc573ec9385aad3c81e69112c8ae5e54afd0f678e983d241267b4510109",
   //   feeRate,
   //   "10000",
   //   "8",
@@ -303,15 +277,66 @@ const test = async () => {
 
 test();
 
-// sendInscription(
-//   "026272fe4cf7746c9c3de3d48afc5f27fe4ba052fc8f72913a6020fa970f7f5823"
-// );
+// Initialize MVP hybrid swap maker orders: 10 rune orders + 5 inscription orders
+const initializeEscrow = async () => {
+  console.log("🚀 Initializing MVP hybrid swap maker orders...");
+  console.log("Target: 10 rune orders (100k each) + 5 inscription orders");
+  
+  try {
+    // Import required modules
+    const { fetchAvailableInscriptionUTXO } = await import("./utils/utxo.service.js");
+    const { WalletTypes } = await import("./config/config.js");
+    
+    console.log("📝 Step 1: Generating 10 rune maker orders (100k runes each)...");
+    
+    // Generate 10 rune maker orders
+    for (let i = 0; i < 10; i++) {
+      await sendInscription("035eca3cc573ec9385aad3c81e69112c8ae5e54afd0f678e983d241267b4510109");
+      console.log(`✅ Rune maker order ${i + 1}/10 generated`);
+    }
+    
+    console.log("📝 Step 2: Fetching available inscriptions from escrow...");
+    
+    // Get inscriptions from escrow
+    const escrowInscriptions = await fetchAvailableInscriptionUTXO(
+      "tb1pdehlzgmjm4jpxcap8c0e4ncwjql9xgqvv3zegp8u953vsufpvjzqsw0ksy"
+    );
+    
+    console.log(`Found ${escrowInscriptions.length} inscriptions in escrow`);
+    
+    console.log("📝 Step 3: Generating 5 inscription maker orders...");
+    
+    // Generate 5 inscription maker orders
+    const maxInscriptionOrders = Math.min(5, escrowInscriptions.length);
+    for (let i = 0; i < maxInscriptionOrders; i++) {
+      await preGenerateReconvertPSBT(
+        WalletTypes.UNISAT,
+        "tb1pdehlzgmjm4jpxcap8c0e4ncwjql9xgqvv3zegp8u953vsufpvjzqsw0ksy",
+        "035eca3cc573ec9385aad3c81e69112c8ae5e54afd0f678e983d241267b4510109",
+        "tb1pdehlzgmjm4jpxcap8c0e4ncwjql9xgqvv3zegp8u953vsufpvjzqsw0ksy",
+        "035eca3cc573ec9385aad3c81e69112c8ae5e54afd0f678e983d241267b4510109",
+        escrowInscriptions[i].inscriptionId
+      );
+      console.log(`✅ Inscription maker order ${i + 1}/${maxInscriptionOrders} generated (${escrowInscriptions[i].inscriptionId})`);
+    }
+    
+    console.log("🎉 MVP hybrid swap initialization completed successfully!");
+    console.log(`📊 Summary: ${10} rune orders + ${maxInscriptionOrders} inscription orders ready`);
+    
+  } catch (error: any) {
+    console.error("❌ Error initializing MVP hybrid swap:", error);
+    console.error(error.stack);
+  }
+};
+
+// Run escrow initialization 
+initializeEscrow();
 // preGeneratePSBT(
 //   0,
-//   "tb1pgda5khhwqlc7jmdzn4plca3pa4m7jg38zcspj0mmuyk8hnj5pphskers72",
-//   "026272fe4cf7746c9c3de3d48afc5f27fe4ba052fc8f72913a6020fa970f7f5823",
-//   "tb1pgda5khhwqlc7jmdzn4plca3pa4m7jg38zcspj0mmuyk8hnj5pphskers72",
-//   "026272fe4cf7746c9c3de3d48afc5f27fe4ba052fc8f72913a6020fa970f7f5823"
+//   "tb1pdehlzgmjm4jpxcap8c0e4ncwjql9xgqvv3zegp8u953vsufpvjzqsw0ksy",
+//   "035eca3cc573ec9385aad3c81e69112c8ae5e54afd0f678e983d241267b4510109",
+//   "tb1pdehlzgmjm4jpxcap8c0e4ncwjql9xgqvv3zegp8u953vsufpvjzqsw0ksy",
+//   "035eca3cc573ec9385aad3c81e69112c8ae5e54afd0f678e983d241267b4510109"
 // );
 // preGeneratePSBT(
 //   1,
@@ -322,7 +347,7 @@ test();
 // );
 // pushPSBT(
 //   0,
-//   "tb1pgda5khhwqlc7jmdzn4plca3pa4m7jg38zcspj0mmuyk8hnj5pphskers72",
+//   "tb1pdehlzgmjm4jpxcap8c0e4ncwjql9xgqvv3zegp8u953vsufpvjzqsw0ksy",
 //   "70736274ff0100fd22010200000002142dfb762f6b45e831c9d960c6d3c0c7daec12a6cd4e75e4efd6dc26a0a865e80200000000ffffffff713992949bd52bb6b0b8924173c981fa593b3963bbe788e2926e7620056892490100000000ffffffff052202000000000000225120437b4b5eee07f1e96da29d43fc7621ed77e922271620193f7be12c7bce54086f0000000000000000116a5d0e00f59504d704a08d06020000000322020000000000002251203636642bcc9299b131f4cf9e0eb59ab66bd8e495add1c4fcc858592e774590a42202000000000000225120437b4b5eee07f1e96da29d43fc7621ed77e922271620193f7be12c7bce54086fbf4a050000000000225120437b4b5eee07f1e96da29d43fc7621ed77e922271620193f7be12c7bce54086f000000000001012b2202000000000000225120437b4b5eee07f1e96da29d43fc7621ed77e922271620193f7be12c7bce54086f010304810000000113417cd700e035d5a4d29b87a30007ca11aad1511f663ae4e82e2836eb14f4859cbd9188e268043c654dca5c7f04a7f01434f855e2c1d11cc31eb8d384968211874e810117206272fe4cf7746c9c3de3d48afc5f27fe4ba052fc8f72913a6020fa970f7f58230001012b4f54050000000000225120437b4b5eee07f1e96da29d43fc7621ed77e922271620193f7be12c7bce54086f010304810000000113413835bb0bc42d7d68ee82513a3f99c18e7624e67a398735f5cb9527713914811c367a1dc6df1cf583fc5a37892aeec5de7115dc69248552ebfb9dc5daf7858da5810117206272fe4cf7746c9c3de3d48afc5f27fe4ba052fc8f72913a6020fa970f7f5823000000000000",
 //   {
 //     txid: "f8854d7208d75f08e2f78261b7eadb5671feeece8ecf9a2b37776740fc7854d2",
@@ -332,10 +357,10 @@ test();
 // );
 // preGenerateReconvertPSBT(
 //   0,
-//   "tb1pgda5khhwqlc7jmdzn4plca3pa4m7jg38zcspj0mmuyk8hnj5pphskers72",
-//   "026272fe4cf7746c9c3de3d48afc5f27fe4ba052fc8f72913a6020fa970f7f5823",
-//   "tb1pgda5khhwqlc7jmdzn4plca3pa4m7jg38zcspj0mmuyk8hnj5pphskers72",
-//   "026272fe4cf7746c9c3de3d48afc5f27fe4ba052fc8f72913a6020fa970f7f5823",
+//   "tb1pdehlzgmjm4jpxcap8c0e4ncwjql9xgqvv3zegp8u953vsufpvjzqsw0ksy",
+//   "035eca3cc573ec9385aad3c81e69112c8ae5e54afd0f678e983d241267b4510109",
+//   "tb1pdehlzgmjm4jpxcap8c0e4ncwjql9xgqvv3zegp8u953vsufpvjzqsw0ksy",
+//   "035eca3cc573ec9385aad3c81e69112c8ae5e54afd0f678e983d241267b4510109",
 //   "de1d935bd2f69aba5917a98889097caaf5110e3ad45c3902883e34a368847a3ai0"
 // );
 // preGenerateReconvertPSBT(
@@ -360,18 +385,13 @@ test();
 //   ]
 // );
 
-// preGenerateSendRune(
-//   "tb1pgda5khhwqlc7jmdzn4plca3pa4m7jg38zcspj0mmuyk8hnj5pphskers72",
-//   "026272fe4cf7746c9c3de3d48afc5f27fe4ba052fc8f72913a6020fa970f7f5823"
-// );
-
 // preGenerateClaimPSBT(
-//   "tb1pgda5khhwqlc7jmdzn4plca3pa4m7jg38zcspj0mmuyk8hnj5pphskers72",
-//   "026272fe4cf7746c9c3de3d48afc5f27fe4ba052fc8f72913a6020fa970f7f5823"
+//   "tb1pdehlzgmjm4jpxcap8c0e4ncwjql9xgqvv3zegp8u953vsufpvjzqsw0ksy",
+//   "035eca3cc573ec9385aad3c81e69112c8ae5e54afd0f678e983d241267b4510109"
 // );
 
 // pushPSBT(
-//   "tb1pgda5khhwqlc7jmdzn4plca3pa4m7jg38zcspj0mmuyk8hnj5pphskers72",
+//   "tb1pdehlzgmjm4jpxcap8c0e4ncwjql9xgqvv3zegp8u953vsufpvjzqsw0ksy",
 //   "70736274ff010089020000000142af09065fe005100a989c25e89713b09ee16ea83b6defd8b6f37bf7a7a89f490100000000ffffffff022202000000000000225120437b4b5eee07f1e96da29d43fc7621ed77e922271620193f7be12c7bce54086fa7a39c0b00000000225120437b4b5eee07f1e96da29d43fc7621ed77e922271620193f7be12c7bce54086f000000000001012b4ca79c0b00000000225120437b4b5eee07f1e96da29d43fc7621ed77e922271620193f7be12c7bce54086f01030481000000011341c302b69a6c783a12cf5c4cc1142c457f0acc2299b6f87276a0a192df7775847bc658232ef4d52f0408910c6b7b65b1994d2d8d5e581a6ad40644e02d6bfca9dc810117206272fe4cf7746c9c3de3d48afc5f27fe4ba052fc8f72913a6020fa970f7f5823000000",
 //   {
 //     txid: "8e946f548092b031f95d6e2acff8c7fe64488eae9e5b52f14d612226feb89914",
@@ -396,7 +416,7 @@ test();
  * 
  * Simple endpoint to verify that the server is running
  */
-app.get("/", async (req: express.Request, res: express.Response) => {
+app.get("/", async (_req: express.Request, res: express.Response) => {
   res.status(200).json({
     status: "success",
     message: "CHIMERA Backend Server is Running",

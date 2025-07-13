@@ -66,18 +66,14 @@ export const isUTXOSpent = async (txid: string, vout: number) => {
  */
 export const validateUTXO = async (txid: string, vout: number) => {
   try {
-    // Check both transaction confirmation and spent status in parallel
     const [isConfirmed, spent] = await Promise.all([
       fetchTxStatus(txid),      // Check if transaction is confirmed
       isUTXOSpent(txid, vout),  // Check if UTXO is already spent
     ]);
-
-    // UTXO is valid if transaction is confirmed and UTXO is not spent
     return isConfirmed && !spent;
   } catch (error) {
-    // Log detailed error and return false to indicate invalid UTXO
     console.error(`UTXO validation failed for ${txid}:${vout}`, error);
-    return false; // Default to invalid on error
+    return false;
   }
 };
 
@@ -491,14 +487,13 @@ export const fetchAvailableInscriptionUTXO = async (
 };
 
 /**
- * Fetches all available inscription UTXOs without validation
+ * Fetches all available inscription UTXOs with validation
  * 
- * This is a faster version that skips UTXO validation and is used when
- * speed is more important than absolute accuracy. Use with caution as it may
- * return spent or unconfirmed UTXOs.
+ * This function validates each UTXO to ensure it is confirmed and unspent
+ * before including it in the results. Invalid UTXOs are filtered out.
  * 
  * @param address - The Bitcoin address to fetch inscription UTXOs for
- * @returns Array of inscription UTXOs without validation
+ * @returns Array of validated inscription UTXOs
  */
 export const fetchAllAvailableInscriptionUTXO = async (address: string) => {
   try {
@@ -525,8 +520,11 @@ export const fetchAllAvailableInscriptionUTXO = async (address: string) => {
       const utxoPromises = (res.data.data as any[])
         .filter((utxo) => inscriptionIdList.includes(utxo.inscription_id))
         .map(async (utxo) => {
-          // Skip validation for performance reasons - this is intentional for this function
-          // const confirmed = await validateUTXO(utxo.utxo_txid, utxo.utxo_vout);
+          const confirmed = await validateUTXO(utxo.utxo_txid, utxo.utxo_vout);
+          if (!confirmed) {
+            console.warn(`⚠️  Skipping invalid UTXO: ${utxo.utxo_txid}:${utxo.utxo_vout}`);
+            return null;
+          }
           return {
             txid: utxo.utxo_txid,
             vout: utxo.utxo_vout,

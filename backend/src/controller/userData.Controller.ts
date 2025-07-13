@@ -23,14 +23,19 @@ import NFTDataModel from "../model/NftData";
  */
 export const getRuneBalance = async (userAddress: string) => {
   try {
+    console.log("🔍 Fetching rune balance for:", userAddress, "runeId:", runeId);
     const runeUtxos = await fetchRuneUTXO(userAddress, runeId);
+    console.log("📦 Raw runeUtxos:", JSON.stringify(runeUtxos, null, 2));
+    
     const { runeTotalAmount, divisibility } = await analyzeRuneInfo(
       runeUtxos,
       runeId
     );
+    console.log("💰 Final balance:", runeTotalAmount, "divisibility:", divisibility);
 
     return { balance: runeTotalAmount };
   } catch (error) {
+    console.error("❌ Error in getRuneBalance:", error);
     throw error;
   }
 };

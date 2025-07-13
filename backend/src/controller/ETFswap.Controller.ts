@@ -1388,8 +1388,8 @@ export const pushSwapPsbt = async (
         accounts: [
           {
             pubkey: PubkeyUtil.fromHex(pubkeyHex),
-            is_signer: true,
-            is_writable: true,
+            isSigner: true,
+            isWritable: true,
           },
         ],
         data: instructionData,

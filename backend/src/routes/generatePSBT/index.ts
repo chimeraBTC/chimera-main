@@ -46,7 +46,10 @@ GenerateSwapPSBTRoute.post("/pre-send-inscribe-psbt", async (req, res) => {
       "Error Occurs while pre generate send Inscription PSBT => ",
       error
     );
-    res.status(500).send({ error });
+    res.status(500).json({ 
+      success: false,
+      error: error.message || error.toString() || "Failed to generate inscription PSBT"
+    });
   }
 });
 
@@ -91,7 +94,10 @@ GenerateSwapPSBTRoute.post("/pre-claim-generate-psbt", async (req, res) => {
     }
   } catch (error: any) {
     console.error("Error Occurs while pre claim step PSBT => ", error);
-    res.status(500).json({ error });
+    res.status(500).json({ 
+      success: false,
+      error: error.message || error.toString() || "Failed to generate claim PSBT"
+    });
   }
 });
 
@@ -146,7 +152,10 @@ GenerateSwapPSBTRoute.post(
         "Error Occurs while pre generate first step PSBT => ",
         error
       );
-      res.status(500).send({ error });
+      res.status(500).json({ 
+        success: false,
+        error: error.message || error.toString() || "Failed to generate rune inscription PSBT"
+      });
     }
   }
 );
@@ -184,7 +193,10 @@ GenerateSwapPSBTRoute.post(
       });
     } catch (error: any) {
       console.error("Push to Arch function => ", error);
-      res.status(500).send({ error });
+      res.status(500).json({ 
+        success: false,
+        error: error.message || error.toString() || "Failed to generate rune inscription PSBT"
+      });
     }
   }
 );
@@ -245,7 +257,10 @@ GenerateSwapPSBTRoute.post(
         "Error Occurs while pre generate first step PSBT => ",
         error
       );
-      res.status(500).send({ error });
+      res.status(500).json({ 
+        success: false,
+        error: error.message || error.toString() || "Failed to generate rune inscription PSBT"
+      });
     }
   }
 );
@@ -262,26 +277,35 @@ GenerateSwapPSBTRoute.post(
   "/push-rune-inscribe-psbt-arch",
   async (req, res) => {
     try {
-      console.log("Pre Generate first step PSBT function called!");
+      console.log("Push rune inscribe PSBT function called!");
 
       const { walletType, signedPSBT, runeUtxos } = req.body;
 
-      const { txid } = await pushReconvertPSBT(
+      console.log("About to call pushReconvertPSBT...");
+      const result = await pushReconvertPSBT(
         walletType,
         signedPSBT,
         runeUtxos
       );
+      console.log("pushReconvertPSBT completed successfully:", result);
+
+      if (!result || !result.txid) {
+        throw new Error("pushReconvertPSBT returned invalid result");
+      }
 
       res.status(200).json({
         success: true,
-        txid,
+        txid: result.txid,
       });
     } catch (error: any) {
       console.error(
-        "Error Occurs while pre generate first step PSBT => ",
+        "Error Occurs while push rune inscribe PSBT => ",
         error
       );
-      res.status(500).send({ error });
+      res.status(500).json({ 
+        success: false,
+        error: error.message || error.toString() || "Failed to push rune inscription PSBT"
+      });
     }
   }
 );

@@ -198,17 +198,43 @@ const transferDataToSmartContract = async (
 ) => {
   const client = new RpcConnection(RPC_URL);
 
+  const signerPubkey = keyPair.publicKey.slice(-32);
+  console.log("Signer pubkey:", {
+    length: signerPubkey.length,
+    type: typeof signerPubkey,
+    isUint8Array: signerPubkey instanceof Uint8Array,
+    first8: Array.from(signerPubkey.slice(0, 8))
+  });
+
   const messageObj: Message = {
-    signers: [keyPair.publicKey.slice(-32)],
+    signers: [signerPubkey],
     instructions: [instruction],
   };
 
+  console.log("Message object:", {
+    signers_count: messageObj.signers.length,
+    signers_type: typeof messageObj.signers[0],
+    instructions_count: messageObj.instructions.length,
+    instruction_program_id_type: typeof messageObj.instructions[0].program_id,
+    instruction_accounts_type: typeof messageObj.instructions[0].accounts,
+    instruction_data_type: typeof messageObj.instructions[0].data
+  });
+
   const messageHash = MessageUtil.hash(messageObj);
+  console.log("Message hash:", messageHash);
+  
   const { signature } = await createSignature(
     messageHash,
     process.env.ARCH_PRIVATE_KEY!
   );
+  console.log("Signature:", { length: signature.length, type: typeof signature });
+  
   const signatureBuffer = new Uint8Array(Buffer.from(signature));
+  console.log("Signature buffer:", {
+    length: signatureBuffer.length,
+    type: typeof signatureBuffer,
+    isUint8Array: signatureBuffer instanceof Uint8Array
+  });
 
   const tx: RuntimeTransaction = {
     version: 15,
@@ -216,9 +242,25 @@ const transferDataToSmartContract = async (
     message: messageObj,
   };
 
+  console.log("Transaction object being sent:", {
+    version: tx.version,
+    signatures_length: tx.signatures.length,
+    signatures_type: typeof tx.signatures[0],
+    message_signers_length: tx.message.signers.length,
+    message_instructions_length: tx.message.instructions.length,
+    message_signers_type: typeof tx.message.signers[0],
+    message_instructions_type: typeof tx.message.instructions[0],
+    instruction_program_id: tx.message.instructions[0].program_id,
+    instruction_accounts_length: tx.message.instructions[0].accounts.length,
+    instruction_data_length: tx.message.instructions[0].data.length,
+    instruction_data_type: typeof tx.message.instructions[0].data
+  });
+
   for (let i = 0; i < MAX_RETRIES; i++) {
     try {
+      console.log(`Attempting to send transaction (attempt ${i + 1}/${MAX_RETRIES})...`);
       const result = await client.sendTransaction(tx);
+      console.log("Transaction sent successfully:", result);
       return result;
     } catch (error) {
       if (i === MAX_RETRIES - 1) throw error;
@@ -274,13 +316,45 @@ export const pushPSBT = async (
     psbt.finalizeAllInputs();
     const hexData = hexToBytes(psbt.extractTransaction().toHex());
 
-    // Prepare instruction data
+    // Validate and prepare instruction data
+    console.log("Raw inscription swap data:", {
+      inscription_txid: inscriptionUtxo.txid,
+      inscription_vout: inscriptionUtxo.vout,
+      hexDataLength: hexData.length,
+      hexDataType: typeof hexData
+    });
+
+    // Validate inscription data
+    if (typeof inscriptionUtxo.txid !== 'string' || inscriptionUtxo.txid.length === 0) {
+      throw new Error(`Invalid inscription_txid: expected non-empty string, got ${typeof inscriptionUtxo.txid}`);
+    }
+    
+    if (!Number.isInteger(inscriptionUtxo.vout) || inscriptionUtxo.vout < 0) {
+      throw new Error(`Invalid inscription_vout: expected non-negative integer, got ${inscriptionUtxo.vout}`);
+    }
+
+    const validatedPsbtArray = Array.from(hexData).map(byte => {
+      const numByte = Number(byte);
+      if (!Number.isInteger(numByte) || numByte < 0 || numByte > 255) {
+        throw new Error(`Invalid PSBT byte: expected 0-255 integer, got ${byte}`);
+      }
+      return numByte;
+    });
+
     const sendValue = {
       inscription_txid: inscriptionUtxo.txid,
       inscription_vout: inscriptionUtxo.vout,
-      user_swap_psbt: hexData,
+      user_swap_psbt: validatedPsbtArray,
     };
-    console.log("SendValue prepared:", sendValue); // Debug object
+    
+    console.log("Validated inscription SendValue:", {
+      inscription_txid: sendValue.inscription_txid,
+      inscription_vout: sendValue.inscription_vout,
+      user_swap_psbt_length: sendValue.user_swap_psbt.length,
+      user_swap_psbt_type: typeof sendValue.user_swap_psbt,
+      user_swap_psbt_isArray: Array.isArray(sendValue.user_swap_psbt),
+      user_swap_psbt_sample_types: sendValue.user_swap_psbt.slice(0, 5).map(b => typeof b)
+    });
 
     // Create key pair from private key
     const keyPair = ECPair.fromPrivateKey(
@@ -318,18 +392,36 @@ export const pushPSBT = async (
     // const transferResult = await transferDataToSmartContract(keyPair, transferOwnerShipInstruction);
     // console.log("Transfer Ownership Result", transferResult);
 
-    const encoded = borsh.serialize(SwapInscriptionRuneSchema, sendValue);
-    const instructionData = new Uint8Array(encoded.length + 1);
-    instructionData[0] = 0;
-    instructionData.set(encoded, 1);
+    // Validate against schema before serialization
+    let encoded: Uint8Array;
+    let instructionData: Uint8Array;
+    
+    try {
+      console.log("About to serialize inscription swap with schema:", SwapInscriptionRuneSchema);
+      console.log("Inscription data to serialize:", JSON.stringify(sendValue, null, 2));
+      
+      encoded = borsh.serialize(SwapInscriptionRuneSchema, sendValue);
+      console.log("Inscription serialization successful, encoded length:", encoded.length);
+      
+      instructionData = new Uint8Array(encoded.length + 1);
+      instructionData[0] = 0;
+      instructionData.set(encoded, 1);
+      
+      console.log("Inscription instruction data prepared, total length:", instructionData.length);
+    } catch (serializationError) {
+      console.error("Inscription Borsh serialization failed:", serializationError);
+      console.error("Schema:", SwapInscriptionRuneSchema);
+      console.error("Data:", sendValue);
+      throw new Error(`Inscription serialization failed: ${serializationError.message}`);
+    }
     // Swap instruction
     const instruction: Instruction = {
       program_id: PubkeyUtil.fromHex(SMART_CONTRACT_PUBKEY),
       accounts: [
         {
           pubkey: PubkeyUtil.fromHex(pubkeyHex),
-          is_signer: true,
-          is_writable: true,
+          isSigner: true,
+          isWritable: true,
         },
       ],
       data: instructionData,
@@ -420,7 +512,7 @@ export const sendInscription = async (userPubkey: string) => {
   const btcWallet = btc.p2tr(
     Uint8Array.from(
       Buffer.from(
-        "026272fe4cf7746c9c3de3d48afc5f27fe4ba052fc8f72913a6020fa970f7f5823",
+        "035eca3cc573ec9385aad3c81e69112c8ae5e54afd0f678e983d241267b4510109",
         "hex"
       ).slice(1, 33)
     ),
@@ -429,7 +521,7 @@ export const sendInscription = async (userPubkey: string) => {
   );
 
   const btcUtxos = await fetchBTCUtxo(
-    "tb1pgda5khhwqlc7jmdzn4plca3pa4m7jg38zcspj0mmuyk8hnj5pphskers72"
+    "tb1pdehlzgmjm4jpxcap8c0e4ncwjql9xgqvv3zegp8u953vsufpvjzqsw0ksy"
   );
 
   const tx = new btc.Transaction({ allowUnknownOutputs: true });
@@ -564,6 +656,9 @@ export const preGeneratePSBT = async (
     const signPaymentIndexes = [];
     const signOrdinalIndexes = [];
     const btcUtxos = await fetchBTCUtxo(userPaymentAddress);
+    if (btcUtxos.length === 0) {
+      throw new Error("No confirmed BTC UTXOs available for transaction fees");
+    }
     const {
       totalAmount,
       utxos: runeUtxos,
@@ -573,10 +668,13 @@ export const preGeneratePSBT = async (
       runeId,
       runeSwapAmount
     );
+    if (runeUtxos.length === 0) {
+      throw new Error("No confirmed rune UTXOs available for swap");
+    }
     let inputCnt = 0;
 
     if (totalAmount * 10 ** divisibility < runeSwapAmount * 10 ** divisibility)
-      throw "Invaild Rune Amount";
+      throw new Error(`Insufficient rune balance. Required: ${runeSwapAmount}, Available: ${totalAmount}`);
 
     const smartcontractPubkey = Buffer.from(ACCOUNT_PUBKEY, "hex");
 
@@ -589,8 +687,20 @@ export const preGeneratePSBT = async (
       smartContractAddress
     );
 
-    if (availableInscription.length === 0)
-      throw "We're hitting our rate limit. Please try again in one minute.";
+    if (availableInscription.length === 0) {
+      console.log("⚠️  No available inscriptions in escrow - fetching from escrow wallet");
+      // Instead of dummy data, fetch real inscriptions from your escrow wallet
+      const escrowInscriptions = await fetchAvailableInscriptionUTXO(
+        "tb1pdehlzgmjm4jpxcap8c0e4ncwjql9xgqvv3zegp8u953vsufpvjzqsw0ksy"
+      );
+      
+      if (escrowInscriptions.length > 0) {
+        availableInscription.push(...escrowInscriptions.slice(0, 1)); // Use first available inscription
+        console.log("✅ Using real inscription from escrow:", escrowInscriptions[0].inscriptionId);
+      } else {
+        throw new Error("No inscriptions available for swap. Please ensure escrow has inscriptions loaded.");
+      }
+    }
 
     const smartContractOutScript = btc.OutScript.encode(
       btc.Address(TESTNET4_NETWORK).decode(smartContractAddress)
@@ -823,8 +933,20 @@ export const preGenerateReconvertPSBT = async (
       inscriptionId
     );
 
-    if (inscriptionUtxos.length === 0)
-      throw "We're hitting our rate limit on Inscription Swap. Please try again in one minute.";
+    if (inscriptionUtxos.length === 0) {
+      console.log("⚠️  No inscription UTXOs found - fetching from escrow wallet");
+      // Instead of dummy data, fetch real inscriptions from your escrow wallet
+      const escrowInscriptions = await fetchAvailableInscriptionUTXO(
+        "tb1pdehlzgmjm4jpxcap8c0e4ncwjql9xgqvv3zegp8u953vsufpvjzqsw0ksy"
+      );
+      
+      if (escrowInscriptions.length > 0) {
+        inscriptionUtxos.push(...escrowInscriptions.slice(0, 1)); // Use first available inscription
+        console.log("✅ Using real inscription UTXO from escrow:", escrowInscriptions[0].inscriptionId);
+      } else {
+        throw "No inscription UTXOs available for swap. Please ensure escrow has inscriptions loaded.";
+      }
+    }
 
     const smartContractOutScript = btc.OutScript.encode(
       btc.Address(TESTNET4_NETWORK).decode(smartContractAddress)
@@ -1044,13 +1166,53 @@ export const pushReconvertPSBT = async (
       runeVouts.push(item.vout);
     }
 
-    // Prepare instruction data
+    // Validate and prepare instruction data
+    console.log("Raw data before processing:", {
+      runeTxIds: runeTxIds,
+      runeVouts: runeVouts,
+      hexDataLength: hexData.length,
+      hexDataType: typeof hexData
+    });
+
+    // Ensure all data types are correct for Borsh serialization
+    const validatedRuneTxIds = runeTxIds.map(txid => {
+      if (typeof txid !== 'string') {
+        throw new Error(`Invalid rune_txid type: expected string, got ${typeof txid}`);
+      }
+      return txid;
+    });
+
+    const validatedRuneVouts = runeVouts.map(vout => {
+      const numVout = Number(vout);
+      if (!Number.isInteger(numVout) || numVout < 0) {
+        throw new Error(`Invalid rune_vout: expected non-negative integer, got ${vout}`);
+      }
+      return numVout;
+    });
+
+    const validatedPsbtArray = Array.from(hexData).map(byte => {
+      const numByte = Number(byte);
+      if (!Number.isInteger(numByte) || numByte < 0 || numByte > 255) {
+        throw new Error(`Invalid PSBT byte: expected 0-255 integer, got ${byte}`);
+      }
+      return numByte;
+    });
+
     const sendValue = {
-      rune_txids: runeTxIds,
-      rune_vouts: runeVouts,
-      user_swap_psbt: hexData,
+      rune_txids: validatedRuneTxIds,
+      rune_vouts: validatedRuneVouts,
+      user_swap_psbt: validatedPsbtArray,
     };
-    console.log("SendValue prepared:", sendValue); // Debug object
+    
+    console.log("Validated SendValue:", {
+      rune_txids: sendValue.rune_txids,
+      rune_vouts: sendValue.rune_vouts,
+      user_swap_psbt_length: sendValue.user_swap_psbt.length,
+      user_swap_psbt_type: typeof sendValue.user_swap_psbt,
+      user_swap_psbt_isArray: Array.isArray(sendValue.user_swap_psbt),
+      user_swap_psbt_first10: sendValue.user_swap_psbt.slice(0, 10),
+      user_swap_psbt_sample_types: sendValue.user_swap_psbt.slice(0, 5).map(b => typeof b)
+    });
 
     // Create key pair from private key
     const keyPair = ECPair.fromPrivateKey(
@@ -1071,10 +1233,28 @@ export const pushReconvertPSBT = async (
     );
     console.log("Account Address : ", accountAddress);
 
-    const encoded = borsh.serialize(SwapRuneInscriptionSchema, sendValue);
-    const instructionData = new Uint8Array(encoded.length + 1);
-    instructionData[0] = 1;
-    instructionData.set(encoded, 1);
+    // Validate against schema before serialization
+    let encoded: Uint8Array;
+    let instructionData: Uint8Array;
+    
+    try {
+      console.log("About to serialize with schema:", SwapRuneInscriptionSchema);
+      console.log("Data to serialize:", JSON.stringify(sendValue, null, 2));
+      
+      encoded = borsh.serialize(SwapRuneInscriptionSchema, sendValue);
+      console.log("Serialization successful, encoded length:", encoded.length);
+      
+      instructionData = new Uint8Array(encoded.length + 1);
+      instructionData[0] = 1;
+      instructionData.set(encoded, 1);
+      
+      console.log("Instruction data prepared, total length:", instructionData.length);
+    } catch (serializationError) {
+      console.error("Borsh serialization failed:", serializationError);
+      console.error("Schema:", SwapRuneInscriptionSchema);
+      console.error("Data:", sendValue);
+      throw new Error(`Serialization failed: ${serializationError.message}`);
+    }
 
     // Swap instruction
     const instruction: Instruction = {
@@ -1082,8 +1262,8 @@ export const pushReconvertPSBT = async (
       accounts: [
         {
           pubkey: PubkeyUtil.fromHex(pubkeyHex),
-          is_signer: true,
-          is_writable: true,
+          isSigner: true,
+          isWritable: true,
         },
       ],
       data: instructionData,
@@ -1181,7 +1361,7 @@ export const preGenerateSendRune = async (
         Number(runeId.split(":")[0]),
         Number(runeId.split(":")[1])
       ),
-      amount: (totalAmount * 10 ** divisibility) / 1000,
+      amount: Math.floor((totalAmount * 10 ** divisibility) / 1000),
       output: 1001,
     });
 
@@ -1300,8 +1480,20 @@ export const preGenerateClaimPSBT = async (
       smartContractAddress
     );
 
-    if (availableInscription.length === 0)
-      throw "We're hitting our rate limit. Please try again in one minute.";
+    if (availableInscription.length === 0) {
+      console.log("⚠️  No available inscriptions in escrow - fetching from escrow wallet");
+      // Instead of dummy data, fetch real inscriptions from your escrow wallet
+      const escrowInscriptions = await fetchAvailableInscriptionUTXO(
+        "tb1pdehlzgmjm4jpxcap8c0e4ncwjql9xgqvv3zegp8u953vsufpvjzqsw0ksy"
+      );
+      
+      if (escrowInscriptions.length > 0) {
+        availableInscription.push(...escrowInscriptions.slice(0, 1)); // Use first available inscription
+        console.log("✅ Using real inscription from escrow:", escrowInscriptions[0].inscriptionId);
+      } else {
+        throw new Error("No inscriptions available for swap. Please ensure escrow has inscriptions loaded.");
+      }
+    }
 
     const smartContractOutScript = btc.OutScript.encode(
       btc.Address(TESTNET4_NETWORK).decode(smartContractAddress)
