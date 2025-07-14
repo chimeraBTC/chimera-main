@@ -20,7 +20,7 @@
 export const SwapInscriptionRuneSchema = {
   struct: {
     inscription_txid: "string",
-    inscription_vout: "u32",
+    inscription_vout: "u8",
     user_swap_psbt: { array: { type: "u8" } },
   },
 };
@@ -47,7 +47,7 @@ export const SwapInscriptionRuneSchema = {
 export const SwapRuneInscriptionSchema = {
   struct: {
     rune_txids: { array: { type: "string" } },
-    rune_vouts: { array: { type: "u32" } },
+    rune_vouts: { array: { type: "u8" } },
     user_swap_psbt: { array: { type: "u8" } },
   },
 };

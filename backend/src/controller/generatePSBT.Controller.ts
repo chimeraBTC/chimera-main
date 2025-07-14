@@ -198,7 +198,7 @@ const transferDataToSmartContract = async (
 ) => {
   const client = new RpcConnection(RPC_URL);
 
-  const signerPubkey = keyPair.publicKey.slice(-32);
+  const signerPubkey = Uint8Array.from(keyPair.publicKey.slice(-32));
   console.log("Signer pubkey:", {
     length: signerPubkey.length,
     type: typeof signerPubkey,
@@ -238,8 +238,19 @@ const transferDataToSmartContract = async (
 
   const tx: RuntimeTransaction = {
     version: 15,
-    signatures: [signatureBuffer],
-    message: messageObj,
+    signatures: [Array.from(signatureBuffer) as any],
+    message: {
+      signers: messageObj.signers.map(signer => Array.from(signer) as any),
+      instructions: messageObj.instructions.map(instruction => ({
+        program_id: Array.from(instruction.program_id) as any,
+        accounts: instruction.accounts.map(account => ({
+          pubkey: Array.from(account.pubkey) as any,
+          is_signer: account.is_signer,
+          is_writable: account.is_writable
+        })),
+        data: Array.from(instruction.data) as any
+      }))
+    },
   };
 
   console.log("Transaction object being sent:", {
@@ -259,6 +270,7 @@ const transferDataToSmartContract = async (
   for (let i = 0; i < MAX_RETRIES; i++) {
     try {
       console.log(`Attempting to send transaction (attempt ${i + 1}/${MAX_RETRIES})...`);
+      console.log("Full transaction JSON:", JSON.stringify(tx, null, 2));
       const result = await client.sendTransaction(tx);
       console.log("Transaction sent successfully:", result);
       return result;
@@ -333,28 +345,13 @@ export const pushPSBT = async (
       throw new Error(`Invalid inscription_vout: expected non-negative integer, got ${inscriptionUtxo.vout}`);
     }
 
-    const validatedPsbtArray = Array.from(hexData).map(byte => {
-      const numByte = Number(byte);
-      if (!Number.isInteger(numByte) || numByte < 0 || numByte > 255) {
-        throw new Error(`Invalid PSBT byte: expected 0-255 integer, got ${byte}`);
-      }
-      return numByte;
-    });
-
     const sendValue = {
       inscription_txid: inscriptionUtxo.txid,
       inscription_vout: inscriptionUtxo.vout,
-      user_swap_psbt: validatedPsbtArray,
+      user_swap_psbt: hexData,
     };
     
-    console.log("Validated inscription SendValue:", {
-      inscription_txid: sendValue.inscription_txid,
-      inscription_vout: sendValue.inscription_vout,
-      user_swap_psbt_length: sendValue.user_swap_psbt.length,
-      user_swap_psbt_type: typeof sendValue.user_swap_psbt,
-      user_swap_psbt_isArray: Array.isArray(sendValue.user_swap_psbt),
-      user_swap_psbt_sample_types: sendValue.user_swap_psbt.slice(0, 5).map(b => typeof b)
-    });
+    console.log("SendValue prepared:", sendValue);
 
     // Create key pair from private key
     const keyPair = ECPair.fromPrivateKey(
@@ -392,36 +389,18 @@ export const pushPSBT = async (
     // const transferResult = await transferDataToSmartContract(keyPair, transferOwnerShipInstruction);
     // console.log("Transfer Ownership Result", transferResult);
 
-    // Validate against schema before serialization
-    let encoded: Uint8Array;
-    let instructionData: Uint8Array;
-    
-    try {
-      console.log("About to serialize inscription swap with schema:", SwapInscriptionRuneSchema);
-      console.log("Inscription data to serialize:", JSON.stringify(sendValue, null, 2));
-      
-      encoded = borsh.serialize(SwapInscriptionRuneSchema, sendValue);
-      console.log("Inscription serialization successful, encoded length:", encoded.length);
-      
-      instructionData = new Uint8Array(encoded.length + 1);
-      instructionData[0] = 0;
-      instructionData.set(encoded, 1);
-      
-      console.log("Inscription instruction data prepared, total length:", instructionData.length);
-    } catch (serializationError) {
-      console.error("Inscription Borsh serialization failed:", serializationError);
-      console.error("Schema:", SwapInscriptionRuneSchema);
-      console.error("Data:", sendValue);
-      throw new Error(`Inscription serialization failed: ${serializationError.message}`);
-    }
+    const encoded = borsh.serialize(SwapInscriptionRuneSchema, sendValue);
+    const instructionData = new Uint8Array(encoded.length + 1);
+    instructionData[0] = 0;
+    instructionData.set(encoded, 1);
     // Swap instruction
     const instruction: Instruction = {
       program_id: PubkeyUtil.fromHex(SMART_CONTRACT_PUBKEY),
       accounts: [
         {
           pubkey: PubkeyUtil.fromHex(pubkeyHex),
-          isSigner: true,
-          isWritable: true,
+          is_signer: true,
+          is_writable: true,
         },
       ],
       data: instructionData,
@@ -1190,29 +1169,13 @@ export const pushReconvertPSBT = async (
       return numVout;
     });
 
-    const validatedPsbtArray = Array.from(hexData).map(byte => {
-      const numByte = Number(byte);
-      if (!Number.isInteger(numByte) || numByte < 0 || numByte > 255) {
-        throw new Error(`Invalid PSBT byte: expected 0-255 integer, got ${byte}`);
-      }
-      return numByte;
-    });
-
     const sendValue = {
       rune_txids: validatedRuneTxIds,
       rune_vouts: validatedRuneVouts,
-      user_swap_psbt: validatedPsbtArray,
+      user_swap_psbt: hexData,
     };
     
-    console.log("Validated SendValue:", {
-      rune_txids: sendValue.rune_txids,
-      rune_vouts: sendValue.rune_vouts,
-      user_swap_psbt_length: sendValue.user_swap_psbt.length,
-      user_swap_psbt_type: typeof sendValue.user_swap_psbt,
-      user_swap_psbt_isArray: Array.isArray(sendValue.user_swap_psbt),
-      user_swap_psbt_first10: sendValue.user_swap_psbt.slice(0, 10),
-      user_swap_psbt_sample_types: sendValue.user_swap_psbt.slice(0, 5).map(b => typeof b)
-    });
+    console.log("SendValue prepared:", sendValue);
 
     // Create key pair from private key
     const keyPair = ECPair.fromPrivateKey(
@@ -1233,28 +1196,10 @@ export const pushReconvertPSBT = async (
     );
     console.log("Account Address : ", accountAddress);
 
-    // Validate against schema before serialization
-    let encoded: Uint8Array;
-    let instructionData: Uint8Array;
-    
-    try {
-      console.log("About to serialize with schema:", SwapRuneInscriptionSchema);
-      console.log("Data to serialize:", JSON.stringify(sendValue, null, 2));
-      
-      encoded = borsh.serialize(SwapRuneInscriptionSchema, sendValue);
-      console.log("Serialization successful, encoded length:", encoded.length);
-      
-      instructionData = new Uint8Array(encoded.length + 1);
-      instructionData[0] = 1;
-      instructionData.set(encoded, 1);
-      
-      console.log("Instruction data prepared, total length:", instructionData.length);
-    } catch (serializationError) {
-      console.error("Borsh serialization failed:", serializationError);
-      console.error("Schema:", SwapRuneInscriptionSchema);
-      console.error("Data:", sendValue);
-      throw new Error(`Serialization failed: ${serializationError.message}`);
-    }
+    const encoded = borsh.serialize(SwapRuneInscriptionSchema, sendValue);
+    const instructionData = new Uint8Array(encoded.length + 1);
+    instructionData[0] = 1;
+    instructionData.set(encoded, 1);
 
     // Swap instruction
     const instruction: Instruction = {
@@ -1262,8 +1207,8 @@ export const pushReconvertPSBT = async (
       accounts: [
         {
           pubkey: PubkeyUtil.fromHex(pubkeyHex),
-          isSigner: true,
-          isWritable: true,
+          is_signer: true,
+          is_writable: true,
         },
       ],
       data: instructionData,

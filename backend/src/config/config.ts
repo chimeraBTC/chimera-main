@@ -85,7 +85,7 @@ export const ACCOUNT_PUBKEY_SWAP = TEST_MODE
 // export const RPC_URL = TEST_MODE ? "http://rpc-01.test.arch.network" : "";
 export const RPC_URL = TEST_MODE 
   ? "http://127.0.0.1:9002"  // Local Arch RPC endpoint
-  : "";  // Production RPC (to be configured)
+  : "http://127.0.0.1:9002";  // Production RPC (to be configured)
 
 // Gomaestro API Configuration
 export const GOMAESTRO_URL = TEST_MODE
